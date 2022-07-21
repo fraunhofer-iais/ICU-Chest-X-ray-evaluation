@@ -1,0 +1,99 @@
+run: Finetuning_on_silver_labels
+
+_anchors: !do_not_parse
+  data_path: &DATA_PATH "/data/MEDICAL/../"
+  base_dir: &SAVE_DIR "/data/MEDICAL/results/.../"
+  batch_size: &BATCH_SIZE 32
+  max_epochs: &MAX_EPOCHS 250
+  learning_rate: &LEARNING_RATE 1.0e-03
+  weight_decay: &WEIGHT_DECAY 1.0e-06 
+  drop_out: &DROP_OUT 0.0
+  fine_tuning: &FINE_TUNING  "model"
+  max_size: &MAX_SIZE 
+  in_memory: &IN_MEMORY True
+  use_cache: &USE_CACHE True
+  save_checkpoints: &SAVE_CHECKPOINTS True
+  gold_filter: &GOLD_FILTER "silver"
+  label_filter: &LABEL_FILTER "gold_small"
+  cut_filter: &CUT_FILTER False
+  load_checkpoint: &LOAD_CHECKPOINT True
+  checkpoint: &CHECKPOINT 
+    path: "/../pretrained_on_gold_labels.pth"
+    load_model: *LOAD_CHECKPOINT
+    load_optimizer: False
+    load_epoch: False
+    # ignore_weights:
+    #   - 'model.classifier.0.bias'
+    #   - 'model.classifier.0.weight'
+  lr_plateau: &LR_PLATEAU
+    module: torch.optim.lr_scheduler 
+    name: ReduceLROnPlateau
+    args:
+      mode: min
+      factor: 0.5
+      patience: 5
+      # pl args
+      interval: epoch
+      frequency: 1
+      monitor: valid/AUROCMacro 
+  lr_scheduler: &LR_SCHEDULER !gs [*LR_PLATEAU]
+
+                                                              
+model:
+  module: key2med.models.densenet
+  name: DenseNet
+  args:
+    pretrained: False
+    fine_tuning: *FINE_TUNING
+    learning_rate: *LEARNING_RATE
+    learning_rate_scheduler: *LR_SCHEDULER
+    weight_decay: *WEIGHT_DECAY
+    drop_out: *DROP_OUT
+    loss_function:
+      module: torch.nn
+      name: BCELoss
+      args: { }
+
+
+data_loader:
+  module: key2med.data.loader
+  name: UKBDataLoader
+  args:
+    data_path: *DATA_PATH
+    batch_size: *BATCH_SIZE
+    img_resize: 224
+    gold_filter: *GOLD_FILTER
+    label_filter: *LABEL_FILTER
+    cut_filter: *CUT_FILTER
+    in_memory: *IN_MEMORY
+    use_cache: *USE_CACHE
+    max_size: *MAX_SIZE
+
+metrics:
+  - module: key2med.metrics.multilabel_metrics
+    name: AUROC
+  - module: key2med.metrics.multilabel_metrics
+    name: AUROCMacro
+  - module: key2med.metrics.binary_metrics
+    name: AUROC
+  - module: key2med.metrics.multilabel_metrics
+    name: ClassificationReport
+  - module: key2med.metrics.multilabel_metrics
+    name: AUROCWeighted
+
+trainer:
+  args:
+    max_epochs: *MAX_EPOCHS
+    terminate_on_nan: True
+    log_every_n_steps: 1
+
+logging:
+  use_wandb: False
+  logging_dir: !join [ *SAVE_DIR, 'logging/' ]
+
+model_checkpoints:
+  save_checkpoints: *SAVE_CHECKPOINTS
+  best_model_metric: valid/AUROCMacro
+  checkpoints_dir: !join [ *SAVE_DIR, 'checkpoints/' ]
+
+load_checkpoint: *CHECKPOINT
