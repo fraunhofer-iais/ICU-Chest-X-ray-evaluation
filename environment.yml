@@ -1,0 +1,13 @@
+name: key2med
+channels:
+  - defaults
+  - conda-forge
+  - pytorch
+  # - fastai
+dependencies:
+  - python>=3.8
+  - pip
+  # BASICS
+  - pip:
+      - -r requirements.txt
+      - -e .  # install git checkout of key2med in editable mode
