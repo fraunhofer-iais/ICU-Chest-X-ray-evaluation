@@ -1,6 +1,6 @@
 name: key2med
 channels:
-  - defaults
+  - nodefaults
   - conda-forge
   - pytorch
   # - fastai
